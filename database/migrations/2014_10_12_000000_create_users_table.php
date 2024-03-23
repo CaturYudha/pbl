@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('nama_user');
             $table->string('no_hp')->nullable();
             $table->string('ttd')->nullable(); // Untuk menyimpan tanda tangan user (file gambar)
-            $table->enum('role', ['admin', 'wakil_ketua', 'ketua_program', 'kepsek', 'guru', 'siswa']);
+            $table->enum('role', ['admin', 'sarpras', 'ketua_program', 'kepsek', 'guru', 'siswa']);
             $table->timestamp('created_at')->useCurrent(); // Untuk menyimpan tanggal akun dibuat
             $table->timestamp('updated_at')->nullable(); // Untuk menyimpan tanggal akun di-edit
         });

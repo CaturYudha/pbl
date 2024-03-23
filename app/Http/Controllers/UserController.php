@@ -1,69 +1,138 @@
 <?php
 
 namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
-    // Menampilkan semua data user
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
     public function index()
     {
         $users = User::all();
-        return response()->json($users, 200); // 200 OK
+        return response()->json($users);
     }
 
-    // Menyimpan data baru
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
     public function store(Request $request)
     {
         $request->validate([
-            'username' => 'required|string|max:255',
-            'password' => 'required|string|min:20',
-            'nama_user' => 'required|string|min:255',
-            'no_hp' => '|integer|min:255',
-            'ttd' => '|string|min:255',
-            'role' => 'required|in:admin,wakil_ketua,wakasek,ketua_program,kepsek,guru,siswa',
-
+            'username' => 'required|string|unique:users',
+            'password' => 'required|string|min:6',
+            'nama_user' => 'required|string',
+            'no_hp' => 'nullable|string',
+            'ttd' => 'nullable|image|mimes:png|max:2048', // Format PNG, maksimum ukuran 2MB
+            'role' => 'required|string|in:admin,sarpras,ketua_program,kepsek,guru,siswa',
         ]);
 
-        $user = User::create($request->all());
+        $data = $request->all();
         
 
-        return response()->json($user, 201); // 201 Created
+        // Jika ada file gambar yang diunggah
+        if ($request->hasFile('ttd')) {
+            // Simpan gambar ke direktori yang telah ditentukan
+            $file = $request->file('ttd');
+            $fileName = time() . '_' . $file->getClientOriginalName();
+            $filePath = '/uploads/ttd/' . $fileName;
+            $file->move(public_path('uploads/ttd'), $fileName);
+
+            // Simpan path penyimpanan gambar di dalam kolom 'ttd' di database
+            $data['ttd'] = $filePath;
+        }
+
+        // Simpan data user ke dalam database
+        $user = User::create($data);
+        $user->update($request->except('ttd'));
+
+
+        return response()->json(['message' => 'Data user berhasil ditambahkan', 'user' => $user], 201);
     }
 
-    // Menampilkan detail user berdasarkan ID
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
     public function show($id)
     {
         $user = User::findOrFail($id);
-        return response()->json($user, 200); // 200 OK
+        return response()->json($user);
     }
 
-    // Memperbarui data user
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
     public function update(Request $request, $id)
-    {
-        $user = User::findOrFail($id);
+{
+    $user = User::findOrFail($id);
 
-        $request->validate([
-            'name' => 'string|max:255',
-            'email' => 'email|unique:users,email,' . $id,
-            'password' => 'string|min:6',
-        ]);
-
-        $user->update($request->all());
-
-        return response()->json($user, 200); // 200 OK
+    if (!$user) {
+        return response()->json(['message' => 'User not found'], 404);
     }
 
-    // Menghapus data user
+    $request->validate([
+        'username' => 'required|string',
+        'password' => 'required|string|min:6',
+        'nama_user' => 'required|string',
+        'no_hp' => 'nullable|string',
+        'ttd' => 'nullable|image|mimes:png|max:2048',
+        'role' => 'required|string|in:admin,sarpras,ketua_program,kepsek,guru,siswa',
+    ]);
+
+    // Jika ada perubahan pada gambar tanda tangan
+    if ($request->hasFile('ttd')) {
+        $file = $request->file('ttd');
+        $fileName = time() . '_' . $file->getClientOriginalName();
+        $filePath = '/uploads/ttd/' . $fileName;
+        $file->move(public_path('uploads/ttd'), $fileName);
+
+        // Hapus gambar tanda tangan yang lama (jika ada)
+        if ($user->ttd && file_exists(public_path($user->ttd))) {
+            unlink(public_path($user->ttd));
+        }
+
+        // Simpan path gambar tanda tangan yang baru di database
+        $user->ttd = $filePath;
+    }
+
+    // Update data user
+    $user->update($request->all());
+
+    return response()->json(['message' => 'Data user berhasil diperbarui', 'user' => $user], 200);
+}
+
+
+
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
     public function destroy($id)
     {
         $user = User::findOrFail($id);
         $user->delete();
 
-        return response()->json(null, 204); // 204 No Content
+        if ($user) {
+            return response()->json(['message' => 'Data user berhasil dihapus'], 200);
+        } else {
+            return response()->json(['message' => 'Gagal menghapus data user'], 400);
+        }
     }
-
-
 }
